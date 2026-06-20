@@ -22,6 +22,44 @@ export function setServerUrl(url: string): void {
   }
 }
 
+// Credenciales para re-login automático: la cookie de sesión de Traccar es de
+// sesión (se borra al cerrar la app), así que guardamos email/pass para volver
+// a autenticar al arrancar. Es para uso personal: queda en localStorage (no cifrado).
+const AUTH_KEY = "cunicars_auth";
+
+export interface SavedCreds {
+  email: string;
+  password: string;
+}
+
+export function saveCreds(email: string, password: string): void {
+  try {
+    localStorage.setItem(AUTH_KEY, btoa(unescape(encodeURIComponent(JSON.stringify({ email, password })))));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function loadCreds(): SavedCreds | null {
+  try {
+    const raw = localStorage.getItem(AUTH_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(decodeURIComponent(escape(atob(raw))));
+    if (obj && typeof obj.email === "string" && typeof obj.password === "string") return obj;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+export function clearCreds(): void {
+  try {
+    localStorage.removeItem(AUTH_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 // Base del API. En dev usamos el proxy de Vite ("/api" -> Traccar) para evitar CORS.
 // En build (Android/prod) pega directo al servidor configurado.
 export function baseURL(): string {

@@ -9,7 +9,7 @@ import SettingsTab from "./views/SettingsTab";
 import ErrorBoundary from "./ui/ErrorBoundary";
 import { useLiveSocket } from "./api/useLiveSocket";
 import { getDevices, getPositions, getSession, login, logout } from "./api/traccar";
-import { getServerUrl, refreshBaseUrl, setServerUrl } from "./api/client";
+import { clearCreds, getServerUrl, loadCreds, refreshBaseUrl, saveCreds, setServerUrl } from "./api/client";
 import { buildVehicles, toAlert } from "./lib/vehicles";
 import type { TileKey } from "./theme";
 import type { Device, Position, TraccarUser } from "./types/traccar";
@@ -35,13 +35,25 @@ export default function App() {
 
   const live = useLiveSocket(!!user);
 
-  // Sesión activa al cargar.
+  // Sesión activa al cargar. Si la cookie ya no está (la app se cerró), se
+  // re-loguea solo con las credenciales guardadas.
   useEffect(() => {
-    getSession().then((u) => {
+    (async () => {
+      let u = await getSession();
+      if (!u) {
+        const creds = loadCreds();
+        if (creds) {
+          try {
+            u = await login(creds.email, creds.password);
+          } catch {
+            /* credenciales inválidas o sin red */
+          }
+        }
+      }
       setUser(u);
       setBooting(false);
       if (!u) setTab("settings");
-    });
+    })();
   }, []);
 
   // Snapshot inicial al autenticar.
@@ -81,6 +93,7 @@ export default function App() {
         refreshBaseUrl();
       }
       const u = await login(email, password);
+      saveCreds(email, password); // para re-login automático tras cerrar la app
       setUser(u);
       setTab("map");
     } catch {
@@ -96,6 +109,7 @@ export default function App() {
     } catch {
       /* ignore */
     }
+    clearCreds(); // no re-loguear automático tras desconectar a propósito
     setUser(null);
     setSelectedId(null);
     setTab("settings");
