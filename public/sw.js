@@ -1,6 +1,8 @@
-// Service worker mínimo de CUNICARS: habilita la instalación PWA y cachea el
-// shell para arranque offline. Los datos de Traccar (/api, tiles) van siempre a red.
-const CACHE = "cunicars-v1";
+// Service worker de CUNICARS.
+// Estrategia network-first para el contenido propio: siempre intenta lo último
+// (así los deploys nuevos se ven al instante) y cae al cache solo si no hay red.
+// Los datos de Traccar (/api, websocket) y los tiles van directo a la red.
+const CACHE = "cunicars-v2";
 const SHELL = ["/", "/index.html", "/icon.svg", "/manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
@@ -15,21 +17,20 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  // Nunca cachear API ni tiles ni websockets: siempre a la red.
-  if (e.request.method !== "GET" || url.pathname.startsWith("/api") || url.hostname.endsWith("google.com") || url.hostname.includes("arcgisonline") || url.hostname.includes("cartocdn")) {
+  // No tocar: métodos no-GET, API, otros orígenes (tiles de Google, etc.).
+  if (e.request.method !== "GET" || url.origin !== location.origin || url.pathname.startsWith("/api")) {
     return;
   }
-  // App shell: cache-first con actualización en segundo plano.
+  // Network-first: pedir a la red, cachear la copia, y si falla usar el cache.
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      const net = fetch(e.request).then((res) => {
-        if (res.ok && url.origin === location.origin) {
+    fetch(e.request)
+      .then((res) => {
+        if (res.ok) {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put(e.request, copy));
         }
         return res;
-      }).catch(() => cached);
-      return cached || net;
-    }),
+      })
+      .catch(() => caches.match(e.request).then((cached) => cached || caches.match("/index.html"))),
   );
 });
