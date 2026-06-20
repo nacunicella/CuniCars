@@ -48,6 +48,32 @@ export default function SettingsTab({
     }
   }
 
+  async function handleDownloadApk() {
+    // El archivo /cunicars.apk puede no existir aún (hay que compilarlo y subirlo).
+    // Si no está, el server devuelve el index.html del SPA: lo detectamos y avisamos
+    // en vez de descargar un .html basura.
+    try {
+      const res = await fetch("/cunicars.apk", { cache: "no-store" });
+      const type = res.headers.get("content-type") ?? "";
+      if (!res.ok || type.includes("text/html")) {
+        setPwaTip("El APK todavía no está disponible. Hay que compilarlo y subir public/cunicars.apk.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "CUNICARS.apk";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setPwaTip("");
+    } catch {
+      setPwaTip("No se pudo descargar el APK.");
+    }
+  }
+
   return (
     <div style={{ width: "100%", height: "100%", overflowY: "auto", padding: "20px 16px 110px" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -121,10 +147,10 @@ export default function SettingsTab({
                 Instalar como app (PWA)
               </button>
             )}
-            <a href="/cunicars.apk" download="CUNICARS.apk" style={{ ...installBtn, textDecoration: "none" }}>
+            <button onClick={handleDownloadApk} style={installBtn}>
               <Icon name="download" size={16} color="#4f8ef7" />
               Descargar APK (Android)
-            </a>
+            </button>
             {pwaTip && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", lineHeight: 1.5, paddingLeft: 4 }}>{pwaTip}</p>}
           </div>
         </div>
