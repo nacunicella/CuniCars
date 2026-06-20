@@ -1,0 +1,17 @@
+{
+  "name": "CUNICARS",
+  "short_name": "CUNICARS",
+  "description": "Rastreo GPS de vehículos en vivo (Traccar)",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0d0f",
+  "theme_color": "#0d0d0f",
+  "icons": [
+    { "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
+    { "src": "/pwa-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "/pwa-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "/pwa-maskable-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ]
+}
