@@ -11,6 +11,7 @@ import { useLiveSocket } from "./api/useLiveSocket";
 import { getDevices, getPositions, getSession, login, logout } from "./api/traccar";
 import { clearCreds, getServerUrl, loadCreds, refreshBaseUrl, saveCreds, setServerUrl } from "./api/client";
 import { buildVehicles, toAlert } from "./lib/vehicles";
+import { describeError, nativeProbe } from "./lib/diag";
 import type { TileKey } from "./theme";
 import type { Device, Position, TraccarUser } from "./types/traccar";
 
@@ -96,8 +97,11 @@ export default function App() {
       saveCreds(email, password); // para re-login automático tras cerrar la app
       setUser(u);
       setTab("map");
-    } catch {
-      setConnectError("No se pudo conectar. Revisá URL, usuario y contraseña.");
+    } catch (e) {
+      // Mostrar la causa real: sin esto, un fallo de red, un 401 y un
+      // certificado rechazado se ven todos igual.
+      const probe = await nativeProbe();
+      setConnectError(`No se pudo conectar: ${describeError(e)}${probe ? ` · ${probe}` : ""}`);
     } finally {
       setConnecting(false);
     }
