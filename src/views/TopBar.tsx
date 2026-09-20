@@ -7,7 +7,7 @@ interface Props {
 
 export default function TopBar({ refreshing, onRefresh }: Props) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px 14px", background: "#0d0d0f", borderBottom: "1px solid rgba(255,255,255,0.06)", zIndex: 10, flexShrink: 0 }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "calc(18px + var(--sat, env(safe-area-inset-top))) 20px 14px", background: "#0d0d0f", borderBottom: "1px solid rgba(255,255,255,0.06)", zIndex: 10, flexShrink: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ width: 34, height: 34, background: "linear-gradient(135deg,#4f8ef7 0%,#1d4ed8 100%)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <Icon name="car" size={18} color="#0d0d0f" />

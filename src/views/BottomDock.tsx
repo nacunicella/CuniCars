@@ -18,7 +18,7 @@ interface Props {
 
 export default function BottomDock({ active, alertCount, onSelect }: Props) {
   return (
-    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", justifyContent: "center", padding: "0 16px 28px", zIndex: 20, pointerEvents: "none" }}>
+    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", justifyContent: "center", padding: "0 16px max(28px, calc(var(--sab, env(safe-area-inset-bottom)) + 14px))", zIndex: 20, pointerEvents: "none" }}>
       <div style={{ display: "flex", alignItems: "stretch", width: "100%", maxWidth: 360, background: "rgba(13,13,15,0.7)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 24, padding: 6, backdropFilter: "blur(20px)", gap: 2, pointerEvents: "auto" }}>
         {tabMeta.map((t) => {
           const on = active === t.key;

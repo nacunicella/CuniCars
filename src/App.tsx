@@ -133,7 +133,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ width: "100%", height: "100vh", background: "#0d0d0f", display: "flex", justifyContent: "center" }}>
+    <div style={{ width: "100%", height: "100dvh", background: "#0d0d0f", display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: 480, height: "100%", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden", fontFamily: "'Space Grotesk',sans-serif" }}>
         <TopBar refreshing={refreshing} onRefresh={handleRefresh} />
 

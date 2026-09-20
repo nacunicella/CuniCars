@@ -164,7 +164,7 @@ export default function SettingsTab({
           <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, overflow: "hidden" }}>
             <div style={{ ...infoRow, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
               <span style={infoKey}>Versión</span>
-              <span style={infoVal}>1.1.1</span>
+              <span style={infoVal}>1.1.4</span>
             </div>
             <div style={infoRow}>
               <span style={infoKey}>CUNICARS</span>
