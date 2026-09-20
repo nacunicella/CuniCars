@@ -29,11 +29,25 @@ function iconFor(device: Device): string {
   return "car";
 }
 
-// Traccar status: 'online' | 'offline' | 'unknown' -> estados del diseño.
-function statusFor(device: Device): StatusKey {
-  if (device.status === "online") return "connected";
+// Un equipo puede estar online para Traccar —mandó señales de vida hace poco—
+// y aun así no saber dónde está: los GPS baratos reportan por GPRS aunque no
+// tengan fix de satélites. Mostrar eso como Conectado es mentir, porque el
+// marcador se queda clavado en una posición vieja sin que nada lo indique.
+const GPS_VIEJO_MS = 15 * 60 * 1000;
+
+function gpsConfiable(pos: Position | undefined): boolean {
+  if (!pos || pos.valid === false) return false;
+  const fix = Date.parse(pos.fixTime);
+  if (Number.isNaN(fix)) return false;
+  return Date.now() - fix <= GPS_VIEJO_MS;
+}
+
+// Traccar status: 'online' | 'offline' | 'unknown', cruzado con la antigüedad
+// del último fix -> los tres estados del diseño.
+function statusFor(device: Device, pos: Position | undefined): StatusKey {
   if (device.status === "offline") return "disconnected";
-  return "unstable";
+  if (device.status !== "online") return "unstable";
+  return gpsConfiable(pos) ? "connected" : "unstable";
 }
 
 function plateFor(device: Device): string {
@@ -56,7 +70,7 @@ export function toVehicle(device: Device, pos: Position | undefined): Vehicle {
     imei: device.uniqueId,
     contact: contactFor(device),
     icon: iconFor(device),
-    status: statusFor(device),
+    status: statusFor(device, pos),
     lastSeen: relativeTime(device.lastUpdate),
     gpsRelative: relativeTime(pos?.fixTime ?? null),
     gpsAbsolute: dateTime(pos?.fixTime ?? null),

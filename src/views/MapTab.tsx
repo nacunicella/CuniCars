@@ -5,6 +5,8 @@ import "leaflet.markercluster";
 import Icon from "../ui/Icon";
 import { statusMap, tileDefs, type StatusKey, type TileKey } from "../theme";
 import type { Vehicle } from "../lib/vehicles";
+import { useAddress } from "../lib/address";
+import { shareDevice } from "../api/traccar";
 
 interface Props {
   vehicles: Vehicle[];
@@ -172,6 +174,43 @@ export default function MapTab({ vehicles, tileKey, selectedId, onSelect }: Prop
     .filter((v) => !q || v.name.toLowerCase().includes(q) || v.plate.toLowerCase().includes(q) || v.contact.toLowerCase().includes(q));
 
   const selected = vehicles.find((v) => v.id === selectedId) ?? null;
+  // Dirección del vehículo abierto. Se pide solo de este, y solo cuando tiene
+  // posición: el geocoder del servidor atiende de a un pedido por vez.
+  const direccion = useAddress(
+    selected?.hasPosition ? selected.lat : null,
+    selected?.hasPosition ? selected.lng : null,
+  );
+
+  // Enlace temporal de Traccar para que alguien siga el vehículo sin cuenta.
+  const [sharing, setSharing] = useState(false);
+  const [shareMsg, setShareMsg] = useState("");
+
+  useEffect(() => {
+    setShareMsg("");
+  }, [selectedId]);
+
+  async function handleShare() {
+    if (!selected || sharing) return;
+    setSharing(true);
+    setShareMsg("");
+    try {
+      const url = await shareDevice(selected.id, 24);
+      if (!url) {
+        setShareMsg("El servidor no devolvió un enlace.");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareMsg("Enlace copiado (vence en 24 h): " + url);
+      } catch {
+        setShareMsg(url); // sin permiso de portapapeles: que lo copie a mano
+      }
+    } catch {
+      setShareMsg("No se pudo generar el enlace.");
+    } finally {
+      setSharing(false);
+    }
+  }
 
   return (
     <div style={{ width: "100%", height: "100%", background: "#15171d", position: "relative", overflow: "hidden" }}>
@@ -297,8 +336,13 @@ export default function MapTab({ vehicles, tileKey, selectedId, onSelect }: Prop
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
             <Icon name="map-pin" size={13} color="rgba(255,255,255,0.3)" />
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selected.location}</span>
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{direccion || selected.location}</span>
           </div>
+          {direccion && selected.hasPosition && (
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 3, paddingLeft: 19 }}>
+              {selected.lat.toFixed(5)}, {selected.lng.toFixed(5)}
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
             <Icon name="satellite" size={13} color="rgba(255,255,255,0.3)" />
             <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
@@ -306,6 +350,17 @@ export default function MapTab({ vehicles, tileKey, selectedId, onSelect }: Prop
               <span style={{ color: "rgba(255,255,255,0.3)" }}> · {selected.gpsAbsolute}</span>
             </span>
           </div>
+          <button
+            onClick={handleShare}
+            disabled={sharing}
+            style={{ marginTop: 10, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "9px 12px", borderRadius: 11, border: "1px solid rgba(79,142,247,0.25)", background: "rgba(79,142,247,0.1)", color: "#4f8ef7", fontSize: 12, fontWeight: 600, fontFamily: "'Space Grotesk',sans-serif", cursor: sharing ? "default" : "pointer", opacity: sharing ? 0.6 : 1, outline: "none" }}
+          >
+            <Icon name="share" size={13} color="#4f8ef7" />
+            {sharing ? "Generando enlace…" : "Compartir ubicación (24 h)"}
+          </button>
+          {shareMsg && (
+            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginTop: 6, lineHeight: 1.45, wordBreak: "break-all" }}>{shareMsg}</p>
+          )}
         </div>
       )}
     </div>

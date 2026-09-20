@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import Icon from "../ui/Icon";
 import { statusMap, tileDefs, type TileKey } from "../theme";
-import { getRoute } from "../api/traccar";
+import { getRoute, getStops, getSummary, getTrips, type Stop } from "../api/traccar";
 import type { Position } from "../types/traccar";
 import type { Vehicle } from "../lib/vehicles";
 import { haversineKm, hhmm, knotsToKmh, kmLabel, durationLabel } from "../lib/format";
@@ -26,9 +26,11 @@ function dateOptions() {
   return out;
 }
 
-function dayRange(dayKey: string): { from: string; to: string } {
-  const start = new Date(`${dayKey}T00:00:00`);
-  const end = new Date(start);
+// Rango a consultar: desde las 00:00 de la fecha inicial hasta el final del día
+// de cierre, o hasta ahora si el rango llega a hoy. Sin cierre es un solo día.
+function rangoFechas(desdeKey: string, hastaKey: string): { from: string; to: string } {
+  const start = new Date(desdeKey + "T00:00:00");
+  const end = new Date((hastaKey || desdeKey) + "T00:00:00");
   end.setDate(end.getDate() + 1);
   const now = new Date();
   return { from: start.toISOString(), to: (end < now ? end : now).toISOString() };
@@ -39,6 +41,12 @@ export default function RouteTab({ vehicles, tileKey }: Props) {
   const [vehId, setVehId] = useState<number | null>(vehicles[0]?.id ?? null);
   const [dayKey, setDayKey] = useState(dates[0].key);
   const [customDate, setCustomDate] = useState("");
+  const [endDate, setEndDate] = useState(""); // cierre del rango; vacío = un día
+  const [stops, setStops] = useState<Stop[]>([]);
+  const [showStops, setShowStops] = useState(false);
+  // Resumen calculado por el servidor (ver getSummary): más fiel que sumar
+  // posiciones en el cliente, que infla la distancia con el ruido del GPS.
+  const [srv, setSrv] = useState<{ distanciaKm: number; maxKmh: number; movimientoMs: number; detenidoMs: number } | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
@@ -52,7 +60,7 @@ export default function RouteTab({ vehicles, tileKey }: Props) {
   useEffect(() => {
     if (vehId == null) return;
     const key = customDate || dayKey;
-    const { from, to } = dayRange(key);
+    const { from, to } = rangoFechas(key, endDate);
     let cancel = false;
     setLoading(true);
     getRoute(vehId, from, to)
@@ -64,10 +72,27 @@ export default function RouteTab({ vehicles, tileKey }: Props) {
       })
       .catch(() => !cancel && setPositions([]))
       .finally(() => !cancel && setLoading(false));
+
+    setSrv(null);
+    setStops([]);
+    Promise.all([getSummary(vehId, from, to), getTrips(vehId, from, to), getStops(vehId, from, to)])
+      .then(([summary, trips, paradas]) => {
+        if (cancel) return;
+        setStops(paradas);
+        setSrv({
+          distanciaKm: (summary?.distance ?? 0) / 1000,
+          maxKmh: knotsToKmh(summary?.maxSpeed ?? 0),
+          movimientoMs: trips.reduce((acc, t) => acc + t.duration, 0),
+          detenidoMs: paradas.reduce((acc, p) => acc + p.duration, 0),
+        });
+      })
+      .catch(() => {
+        /* el recorrido se dibuja igual aunque falle el resumen */
+      });
     return () => {
       cancel = true;
     };
-  }, [vehId, dayKey, customDate]);
+  }, [vehId, dayKey, customDate, endDate]);
 
   const path = useMemo(
     () => positions.map((p) => [p.latitude, p.longitude] as [number, number]),
@@ -190,6 +215,7 @@ export default function RouteTab({ vehicles, tileKey }: Props) {
                 onClick={() => {
                   setDayKey(d.key);
                   setCustomDate("");
+                  setEndDate("");
                 }}
                 style={{ flexShrink: 0, padding: "8px 14px", borderRadius: 11, border: `1px solid ${active ? "rgba(79,142,247,0.3)" : "rgba(255,255,255,0.08)"}`, background: active ? "rgba(79,142,247,0.12)" : "rgba(255,255,255,0.04)", color: active ? "#4f8ef7" : "rgba(255,255,255,0.55)", fontSize: 12, fontWeight: 600, fontFamily: "'Space Grotesk',sans-serif", cursor: "pointer", outline: "none", whiteSpace: "nowrap" }}
               >
@@ -202,6 +228,14 @@ export default function RouteTab({ vehicles, tileKey }: Props) {
             value={customDate}
             onChange={(e) => setCustomDate(e.target.value)}
             style={{ padding: "8px 13px", borderRadius: 11, border: `1px solid ${customDate ? "rgba(79,142,247,0.3)" : "rgba(255,255,255,0.08)"}`, background: customDate ? "rgba(79,142,247,0.12)" : "rgba(255,255,255,0.04)", color: customDate ? "#4f8ef7" : "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: 600, fontFamily: "'Space Grotesk',sans-serif", outline: "none", cursor: "pointer", colorScheme: "dark", minWidth: 44 }}
+          />
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", flexShrink: 0 }}>hasta</span>
+          <input
+            type="date"
+            value={endDate}
+            min={customDate || dayKey}
+            onChange={(e) => setEndDate(e.target.value)}
+            style={{ padding: "8px 13px", borderRadius: 11, border: `1px solid ${endDate ? "rgba(79,142,247,0.3)" : "rgba(255,255,255,0.08)"}`, background: endDate ? "rgba(79,142,247,0.12)" : "rgba(255,255,255,0.04)", color: endDate ? "#4f8ef7" : "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: 600, fontFamily: "'Space Grotesk',sans-serif", outline: "none", cursor: "pointer", colorScheme: "dark", minWidth: 44 }}
           />
         </div>
       </div>
@@ -222,7 +256,7 @@ export default function RouteTab({ vehicles, tileKey }: Props) {
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <Icon name="route" size={13} color="#4f8ef7" />
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", fontWeight: 600 }}>{stats.distance}</span>
+                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", fontWeight: 600 }}>{srv ? kmLabel(srv.distanciaKm) : stats.distance}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <Icon name="clock" size={13} color="rgba(255,255,255,0.35)" />
@@ -230,6 +264,12 @@ export default function RouteTab({ vehicles, tileKey }: Props) {
               </div>
             </div>
           </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 12 }}>
+            <Stat label="En movimiento" value={srv ? durationLabel(srv.movimientoMs) : "—"} />
+            <Stat label="Detenido" value={srv ? durationLabel(srv.detenidoMs) : "—"} />
+            <Stat label="Máxima" value={srv ? `${srv.maxKmh} km/h` : "—"} />
+          </div>
+
           <div style={{ position: "relative", marginBottom: 8 }}>
             <input
               type="range"
@@ -250,6 +290,30 @@ export default function RouteTab({ vehicles, tileKey }: Props) {
               <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{scrubSpeed}</span>
             </div>
           </div>
+          {stops.length > 0 && (
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+              <button
+                onClick={() => setShowStops((v) => !v)}
+                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: "transparent", border: "none", padding: 0, cursor: "pointer", outline: "none" }}
+              >
+                <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>Paradas ({stops.length})</span>
+                <Icon name={showStops ? "chevron-up" : "chevron-down"} size={14} color="rgba(255,255,255,0.35)" />
+              </button>
+              {showStops && (
+                <div style={{ maxHeight: 132, overflowY: "auto", marginTop: 8, display: "flex", flexDirection: "column", gap: 7 }}>
+                  {stops.map((p) => (
+                    <div key={p.startTime} style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                      <span style={{ fontSize: 11, fontFamily: "'Space Mono',monospace", color: "rgba(255,255,255,0.5)", flexShrink: 0 }}>{hhmm(p.startTime)}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "#4f8ef7", flexShrink: 0 }}>{durationLabel(p.duration)}</span>
+                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {p.address ?? `${p.latitude.toFixed(4)}, ${p.longitude.toFixed(4)}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -266,4 +330,14 @@ function cssText(css: string): React.CSSProperties {
     out[key] = v.trim();
   });
   return out as React.CSSProperties;
+}
+
+// Una celda del resumen del recorrido.
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "7px 9px" }}>
+      <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.3)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{value}</div>
+    </div>
+  );
 }

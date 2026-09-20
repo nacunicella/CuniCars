@@ -26,7 +26,7 @@ export const statusMap: Record<
     border: "rgba(34,197,94,0.25)",
   },
   unstable: {
-    label: "Inestable",
+    label: "Sin señal GPS",
     color: "#f59e0b",
     bg: "rgba(245,158,11,0.12)",
     border: "rgba(245,158,11,0.25)",

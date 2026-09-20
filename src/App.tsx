@@ -8,12 +8,12 @@ import RouteTab from "./views/RouteTab";
 import SettingsTab from "./views/SettingsTab";
 import ErrorBoundary from "./ui/ErrorBoundary";
 import { useLiveSocket } from "./api/useLiveSocket";
-import { getDevices, getPositions, getSession, login, logout } from "./api/traccar";
+import { getDevices, getEventsFor, getPositions, getSession, login, logout } from "./api/traccar";
 import { clearCreds, getServerUrl, loadCreds, refreshBaseUrl, saveCreds, setServerUrl } from "./api/client";
 import { buildVehicles, toAlert } from "./lib/vehicles";
 import { describeError, nativeProbe } from "./lib/diag";
 import type { TileKey } from "./theme";
-import type { Device, Position, TraccarUser } from "./types/traccar";
+import type { Device, Position, TraccarEvent, TraccarUser } from "./types/traccar";
 
 const MAP_KEY = "cunicars_map";
 
@@ -33,6 +33,7 @@ export default function App() {
 
   const [seedDevices, setSeedDevices] = useState<Record<number, Device>>({});
   const [seedPositions, setSeedPositions] = useState<Record<number, Position>>({});
+  const [seedEvents, setSeedEvents] = useState<TraccarEvent[]>([]);
 
   const live = useLiveSocket(!!user);
 
@@ -63,18 +64,40 @@ export default function App() {
     else {
       setSeedDevices({});
       setSeedPositions({});
+      setSeedEvents([]);
     }
   }, [user]);
 
   function loadSnapshot() {
-    getDevices().then((ds) => setSeedDevices(Object.fromEntries(ds.map((d) => [d.id, d]))));
+    getDevices().then((ds) => {
+      setSeedDevices(Object.fromEntries(ds.map((d) => [d.id, d])));
+      loadEvents(ds.map((d) => d.id));
+    });
     getPositions().then((ps) => setSeedPositions(Object.fromEntries(ps.map((p) => [p.deviceId, p]))));
+  }
+
+  // Alertas de las últimas 24 h. Sin esto la pestaña arranca vacía cada vez y
+  // solo muestra los eventos que llegan mientras la app está abierta.
+  function loadEvents(deviceIds: number[]) {
+    const hasta = new Date();
+    const desde = new Date(hasta.getTime() - 24 * 60 * 60 * 1000);
+    getEventsFor(deviceIds, desde.toISOString(), hasta.toISOString())
+      .then(setSeedEvents)
+      .catch(() => {
+        /* las alertas son secundarias: que fallen no rompe el resto */
+      });
   }
 
   const devices = useMemo(() => ({ ...seedDevices, ...live.devices }), [seedDevices, live.devices]);
   const positions = useMemo(() => ({ ...seedPositions, ...live.positions }), [seedPositions, live.positions]);
   const vehicles = useMemo(() => buildVehicles(devices, positions), [devices, positions]);
-  const alerts = useMemo(() => live.events.map((e) => toAlert(e, devices)), [live.events, devices]);
+  const alerts = useMemo(() => {
+    const porId = new Map<number, TraccarEvent>();
+    for (const e of [...live.events, ...seedEvents]) porId.set(e.id, e);
+    return [...porId.values()]
+      .sort((a, b) => Date.parse(b.eventTime) - Date.parse(a.eventTime))
+      .map((e) => toAlert(e, devices));
+  }, [live.events, seedEvents, devices]);
 
   function selectTile(key: TileKey) {
     setTileKey(key);
