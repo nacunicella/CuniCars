@@ -6,10 +6,16 @@ const config: CapacitorConfig = {
   webDir: "dist",
   server: {
     androidScheme: "https",
-    // En Android la app corre desde https://localhost, así que el tráfico a
-    // Traccar es cross-origin: el servidor Traccar debe permitir el origin
-    // (traccar.xml -> <entry key='web.origin'>*</entry>) o usar un proxy propio.
-    cleartext: true, // permite http:// si tu Traccar no tiene TLS
+    // En Android la app corre desde https://localhost. Con CapacitorHttp
+    // activado (abajo) los pedidos a Traccar los hace el runtime NATIVO, no el
+    // WebView: no pasan por CORS, así que no hace falta abrir web.origin en el
+    // servidor ni montar un proxy.
+    cleartext: true, // permite apuntar a un Traccar sin TLS (ej. la IP de la LAN)
+  },
+  plugins: {
+    // Redirige fetch() y XMLHttpRequest al HTTP nativo de Android. La cookie de
+    // sesión (JSESSIONID) queda en el cookie jar nativo y viaja en cada pedido.
+    CapacitorHttp: { enabled: true },
   },
 };
 

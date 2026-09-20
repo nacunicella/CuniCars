@@ -3,6 +3,7 @@ import Icon from "../ui/Icon";
 import { mapMeta, type TileKey } from "../theme";
 import type { TraccarUser } from "../types/traccar";
 import { canInstallPWA, isStandalone, onInstallChange, promptInstall } from "../lib/pwa";
+import { isNative } from "../lib/platform";
 
 interface Props {
   user: TraccarUser | null;
@@ -132,7 +133,8 @@ export default function SettingsTab({
           </div>
         </div>
 
-        {/* Instalación */}
+        {/* Instalación: adentro del APK no aplica (ya está instalada) */}
+        {!isNative && (
         <div>
           <p style={section}>Instalación</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -154,6 +156,7 @@ export default function SettingsTab({
             {pwaTip && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", lineHeight: 1.5, paddingLeft: 4 }}>{pwaTip}</p>}
           </div>
         </div>
+        )}
 
         {/* App */}
         <div>
@@ -161,7 +164,7 @@ export default function SettingsTab({
           <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, overflow: "hidden" }}>
             <div style={{ ...infoRow, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
               <span style={infoKey}>Versión</span>
-              <span style={infoVal}>1.0.0</span>
+              <span style={infoVal}>1.1.0</span>
             </div>
             <div style={infoRow}>
               <span style={infoKey}>CUNICARS</span>

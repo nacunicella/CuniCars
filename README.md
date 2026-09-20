@@ -38,18 +38,23 @@ npm run preview    # sirve el build
 ## Android (Capacitor)
 
 ```bash
-npm run build
-npx cap sync android
-npx cap open android   # abre Android Studio para compilar/correr el APK
+npm run android:sync                     # build web + copia a android/
+cd android && ./gradlew assembleDebug    # APK en app/build/outputs/apk/debug/
 ```
 
-> **CORS en Android:** la app corre desde `https://localhost`, así que el
-> tráfico a Traccar es cross-origin. En el servidor, en `conf/traccar.xml`
-> agregá:
-> ```xml
-> <entry key='web.origin'>*</entry>
-> ```
-> o poné Traccar detrás de un proxy con los headers CORS correctos.
+O `npx cap open android` para compilar desde Android Studio.
+
+> **Sin CORS:** la app corre desde `https://localhost`, pero con
+> `CapacitorHttp` activado (ver `capacitor.config.ts`) los pedidos los hace el
+> runtime nativo de Android, no el WebView: no pasan por CORS y **no hay que
+> tocar `web.origin` en el servidor**.
+>
+> **Sin WebSocket:** la cookie de sesión de Traccar es `SameSite=Lax` y no
+> viaja en el handshake cross-site del WebSocket. Adentro del APK el estado
+> vivo se refresca por REST cada 15 s (ver `api/useLiveSocket.ts`).
+
+Para publicar el APK desde la web (botón "Descargar APK" en Ajustes), copiá el
+archivo generado a `public/cunicars.apk` y deployá.
 
 ## Estructura
 

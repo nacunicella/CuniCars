@@ -1,3 +1,5 @@
+import { isNative } from "./platform";
+
 // Manejo de instalación PWA + registro del service worker.
 // El evento beforeinstallprompt se captura apenas carga la app (side-effect del
 // import en main.tsx) para no perderlo antes de que monte Ajustes.
@@ -52,6 +54,9 @@ export function onInstallChange(cb: () => void): () => void {
 }
 
 export function registerSW(): void {
+  // Adentro del APK los assets ya son locales: un service worker ahí solo
+  // agrega riesgo de servir un bundle viejo cacheado.
+  if (isNative) return;
   if ("serviceWorker" in navigator && import.meta.env.PROD) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("/sw.js").catch(() => {

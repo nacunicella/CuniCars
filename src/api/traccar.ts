@@ -76,3 +76,20 @@ export async function getEvents(
   });
   return data;
 }
+
+// Eventos de varios dispositivos a la vez, para el refresco por REST del APK.
+// Traccar espera el parámetro repetido (deviceId=1&deviceId=2); axios por
+// defecto serializa arrays como deviceId[]=1, que el server ignora.
+export async function getEventsFor(
+  deviceIds: number[],
+  from: string,
+  to: string,
+): Promise<TraccarEvent[]> {
+  if (!deviceIds.length) return [];
+  const { data } = await api.get<TraccarEvent[]>("/reports/events", {
+    params: { deviceId: deviceIds, from, to, type: "allEvents" },
+    paramsSerializer: { indexes: null },
+    headers: { Accept: "application/json" }, // sin esto puede devolver xlsx
+  });
+  return data;
+}
