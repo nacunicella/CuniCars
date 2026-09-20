@@ -31,6 +31,15 @@ self.addEventListener("fetch", (e) => {
         }
         return res;
       })
-      .catch(() => caches.match(e.request).then((cached) => cached || caches.match("/index.html"))),
+      .catch(() =>
+        caches.match(e.request).then((cached) => {
+          if (cached) return cached;
+          // Solo una navegación puede caer al shell. Devolver index.html ante un
+          // chunk JS que falla hace que el navegador parsee HTML como módulo y
+          // la app quede en blanco tras un deploy con red intermitente.
+          if (e.request.mode === "navigate") return caches.match("/index.html");
+          return Response.error();
+        }),
+      ),
   );
 });

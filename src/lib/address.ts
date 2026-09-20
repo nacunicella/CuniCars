@@ -33,7 +33,8 @@ export function useAddress(lat: number | null, lng: number | null): string {
         if (vigente) setAddress(dir);
       })
       .catch(() => {
-        cache.set(k, ""); // no reintentar en bucle
+        // No se cachea el error: si el geocoder falló una vez, el vehículo
+        // estacionado en el mismo punto se quedaría sin dirección para siempre.
       });
 
     return () => {

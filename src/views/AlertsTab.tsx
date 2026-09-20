@@ -9,7 +9,8 @@ export default function AlertsTab({ alerts }: { alerts: Alert[] }) {
     <div style={{ width: "100%", height: "100%", overflowY: "auto", padding: "14px 14px 110px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, padding: "0 2px" }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.55)" }}>{label}</span>
-        <button style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", outline: "none", color: "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: 600, fontFamily: "'Space Grotesk',sans-serif" }}>
+        {/* Sin implementar todavía: deshabilitado para no simular una acción. */}
+        <button disabled style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "default", outline: "none", color: "rgba(255,255,255,0.25)", fontSize: 12, fontWeight: 600, fontFamily: "'Space Grotesk',sans-serif" }}>
           <Icon name="check-check" size={14} color="rgba(255,255,255,0.4)" />
           Marcar leídas
         </button>

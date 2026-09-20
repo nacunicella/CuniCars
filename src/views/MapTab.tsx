@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { createRoot, type Root } from "react-dom/client";
 import L from "leaflet";
 import "leaflet.markercluster";
 import Icon from "../ui/Icon";
@@ -117,7 +117,7 @@ export default function MapTab({ vehicles, tileKey, selectedId, onSelect }: Prop
         });
         const marker = L.marker([v.lat, v.lng], { icon });
         // Etiqueta permanente con el nombre, debajo del marcador.
-        marker.bindTooltip(v.name, {
+        marker.bindTooltip(tooltipNode(v.name), {
           permanent: true,
           direction: "bottom",
           className: "cuni-label",
@@ -385,15 +385,30 @@ function ctrlBtn(top: boolean): React.CSSProperties {
   };
 }
 
+// El nombre del equipo lo define el usuario en Traccar. Leaflet asigna los
+// tooltips de tipo string con innerHTML, así que se lo damos como nodo de texto:
+// un equipo renombrado con HTML ejecutaría script en el origen de la app.
+function tooltipNode(text: string): HTMLElement {
+  const el = document.createElement("span");
+  el.textContent = text;
+  return el;
+}
+
 // Dibuja los íconos lucide dentro de los divIcons de Leaflet (que viven fuera
-// del árbol React). Usa renderToStaticMarkup de los SVG de lucide.
+// del árbol React). Se montan con createRoot en vez de renderizar a string para
+// no arrastrar react-dom/server al bundle del cliente.
+const iconRoots = new WeakMap<HTMLElement, Root>();
+
 function renderVehIcons() {
   document.querySelectorAll<HTMLElement>("[data-veh-icon]").forEach((el) => {
     if (el.dataset.painted) return;
     const name = el.getAttribute("data-veh-icon") || "car";
-    el.innerHTML = renderToStaticMarkup(
-      <Icon name={name} size={17} color={el.style.color || "#fff"} />,
-    );
+    let root = iconRoots.get(el);
+    if (!root) {
+      root = createRoot(el);
+      iconRoots.set(el, root);
+    }
+    root.render(<Icon name={name} size={17} color={el.style.color || "#fff"} />);
     el.dataset.painted = "1";
   });
 }

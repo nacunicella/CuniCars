@@ -35,19 +35,19 @@ function iconFor(device: Device): string {
 // marcador se queda clavado en una posición vieja sin que nada lo indique.
 const GPS_VIEJO_MS = 15 * 60 * 1000;
 
-function gpsConfiable(pos: Position | undefined): boolean {
+function gpsConfiable(pos: Position | undefined, now: number): boolean {
   if (!pos || pos.valid === false) return false;
   const fix = Date.parse(pos.fixTime);
   if (Number.isNaN(fix)) return false;
-  return Date.now() - fix <= GPS_VIEJO_MS;
+  return now - fix <= GPS_VIEJO_MS;
 }
 
 // Traccar status: 'online' | 'offline' | 'unknown', cruzado con la antigüedad
 // del último fix -> los tres estados del diseño.
-function statusFor(device: Device, pos: Position | undefined): StatusKey {
+function statusFor(device: Device, pos: Position | undefined, now: number): StatusKey {
   if (device.status === "offline") return "disconnected";
   if (device.status !== "online") return "unstable";
-  return gpsConfiable(pos) ? "connected" : "unstable";
+  return gpsConfiable(pos, now) ? "connected" : "unstable";
 }
 
 function plateFor(device: Device): string {
@@ -60,7 +60,7 @@ function contactFor(device: Device): string {
   return (device.contact ?? device.phone ?? "").trim();
 }
 
-export function toVehicle(device: Device, pos: Position | undefined): Vehicle {
+export function toVehicle(device: Device, pos: Position | undefined, now = Date.now()): Vehicle {
   const lat = pos?.latitude ?? -34.62;
   const lng = pos?.longitude ?? -58.41;
   return {
@@ -70,9 +70,9 @@ export function toVehicle(device: Device, pos: Position | undefined): Vehicle {
     imei: device.uniqueId,
     contact: contactFor(device),
     icon: iconFor(device),
-    status: statusFor(device, pos),
-    lastSeen: relativeTime(device.lastUpdate),
-    gpsRelative: relativeTime(pos?.fixTime ?? null),
+    status: statusFor(device, pos, now),
+    lastSeen: relativeTime(device.lastUpdate, now),
+    gpsRelative: relativeTime(pos?.fixTime ?? null, now),
     gpsAbsolute: dateTime(pos?.fixTime ?? null),
     speed: pos ? knotsToKmh(pos.speed) : 0,
     location: pos?.address ?? (pos ? `${lat.toFixed(4)}, ${lng.toFixed(4)}` : "Sin posición"),
@@ -85,9 +85,10 @@ export function toVehicle(device: Device, pos: Position | undefined): Vehicle {
 export function buildVehicles(
   devices: Record<number, Device>,
   positions: Record<number, Position>,
+  now = Date.now(),
 ): Vehicle[] {
   return Object.values(devices)
-    .map((d) => toVehicle(d, positions[d.id]))
+    .map((d) => toVehicle(d, positions[d.id], now))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -126,7 +127,7 @@ export interface Alert {
   vehicleIcon: string;
 }
 
-export function toAlert(ev: TraccarEvent, devices: Record<number, Device>): Alert {
+export function toAlert(ev: TraccarEvent, devices: Record<number, Device>, now = Date.now()): Alert {
   const meta = EVENT_META[ev.type] ?? {
     title: ev.type,
     icon: "octagon-alert",
@@ -135,10 +136,13 @@ export function toAlert(ev: TraccarEvent, devices: Record<number, Device>): Aler
   const device = devices[ev.deviceId];
   const alarm = ev.attributes?.alarm;
   return {
-    id: ev.id || ev.eventTime ? new Date(ev.eventTime).getTime() + ev.deviceId : Math.random(),
+    // ev.id ?? (fallback): sin los paréntesis, "a || b ? x : y" agrupa como
+    // "(a || b) ? x : y" y el id real nunca se usaba, así que dos eventos del
+    // mismo equipo en el mismo segundo colisionaban.
+    id: ev.id ?? (Date.parse(ev.eventTime) || 0) + ev.deviceId,
     title: meta.title,
     detail: typeof alarm === "string" ? alarm : meta.title,
-    time: relativeTime(ev.eventTime),
+    time: relativeTime(ev.eventTime, now),
     icon: meta.icon,
     sev: meta.sev,
     vehicle: device?.name ?? `#${ev.deviceId}`,

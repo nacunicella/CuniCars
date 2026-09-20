@@ -164,7 +164,7 @@ export default function SettingsTab({
           <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, overflow: "hidden" }}>
             <div style={{ ...infoRow, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
               <span style={infoKey}>Versión</span>
-              <span style={infoVal}>1.3.0</span>
+              <span style={infoVal}>{import.meta.env.VITE_APP_VERSION}</span>
             </div>
             <div style={infoRow}>
               <span style={infoKey}>CUNICARS</span>
@@ -186,10 +186,10 @@ function Field({ label, border, children }: { label: string; border?: boolean; c
   );
 }
 
-const section: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10, paddingLeft: 4 };
+const section: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10, paddingLeft: 4 };
 const input: React.CSSProperties = { width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 12px", color: "#fff", fontSize: 13, outline: "none" };
 const connectBtn: React.CSSProperties = { width: "100%", padding: 14, background: "#4f8ef7", border: "none", borderRadius: 14, color: "#0d0d0f", fontSize: 14, fontWeight: 700, fontFamily: "'Space Grotesk',sans-serif", cursor: "pointer", letterSpacing: "0.02em", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, outline: "none" };
 const installBtn: React.CSSProperties = { width: "100%", padding: "13px 14px", background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.3)", borderRadius: 14, color: "#4f8ef7", fontSize: 14, fontWeight: 600, fontFamily: "'Space Grotesk',sans-serif", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, outline: "none", boxSizing: "border-box" };
 const infoRow: React.CSSProperties = { padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" };
 const infoKey: React.CSSProperties = { fontSize: 13, color: "rgba(255,255,255,0.7)", fontWeight: 500 };
-const infoVal: React.CSSProperties = { fontSize: 13, color: "rgba(255,255,255,0.3)" };
+const infoVal: React.CSSProperties = { fontSize: 13, color: "rgba(255,255,255,0.5)" };

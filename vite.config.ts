@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import pkg from "./package.json";
 
 // El servidor de dev no conoce la extensión .apk y la sirve sin Content-Type:
 // el navegador la sniffea como ZIP y la guarda como .zip. Con el tipo correcto
@@ -23,6 +24,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), apkMime],
+    // Una sola fuente de verdad para la versión: package.json. Antes estaba
+    // escrita a mano en la UI y en build.gradle, y se desincronizaban solas.
+    define: { "import.meta.env.VITE_APP_VERSION": JSON.stringify(pkg.version) },
     server: {
       // Proxy en dev: el front llama a "/api/..." y Vite lo reenvía a Traccar.
       // Evita CORS y reescribe la cookie de sesión al host local.

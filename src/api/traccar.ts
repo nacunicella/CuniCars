@@ -21,14 +21,35 @@ export async function login(
   return data;
 }
 
-// Devuelve el usuario actual si hay sesión activa, o null (401).
+// Devuelve el usuario actual, o null si el servidor dice que no hay sesión.
+// Un fallo de red se propaga: confundirlo con "no hay sesión" hace que la app
+// mande al login como si nunca te hubieras conectado.
 export async function getSession(): Promise<TraccarUser | null> {
   try {
     const { data } = await api.get<TraccarUser>("/session");
     return data;
-  } catch {
-    return null;
+  } catch (e) {
+    const status = (e as { response?: { status?: number } })?.response?.status;
+    if (status === 401 || status === 404) return null;
+    throw e;
   }
+}
+
+// Pide al servidor un token de larga duración para re-autenticar al reabrir la
+// app. Requiere sesión activa (se llama justo después del login).
+export async function createToken(dias = 90): Promise<string> {
+  const expiration = new Date(Date.now() + dias * 24 * 60 * 60 * 1000).toISOString();
+  const body = new URLSearchParams({ expiration });
+  const { data } = await api.post<string>("/session/token", body, {
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "text/plain" },
+  });
+  return typeof data === "string" ? data.trim() : "";
+}
+
+// Abre sesión con un token guardado; el servidor responde con la cookie.
+export async function loginWithToken(token: string): Promise<TraccarUser> {
+  const { data } = await api.get<TraccarUser>("/session", { params: { token } });
+  return data;
 }
 
 export async function logout(): Promise<void> {
@@ -65,17 +86,6 @@ export async function getRoute(
   return data;
 }
 
-// Eventos (alarmas, geocercas, etc.) de un dispositivo en un rango.
-export async function getEvents(
-  deviceId: number,
-  from: string,
-  to: string,
-): Promise<TraccarEvent[]> {
-  const { data } = await api.get<TraccarEvent[]>("/reports/events", {
-    params: { deviceId, from, to },
-  });
-  return data;
-}
 
 // Eventos de varios dispositivos a la vez, para el refresco por REST del APK.
 // Traccar espera el parámetro repetido (deviceId=1&deviceId=2); axios por

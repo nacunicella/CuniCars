@@ -44,15 +44,42 @@ function useSocketFeed(enabled: boolean): LiveSocket {
       return;
     }
     let closed = false;
+    let intento = 0;
+
+    const reintentar = () => {
+      if (closed) return;
+      // Backoff: si la sesión venció, el handshake falla siempre. Reintentar
+      // cada 3 s indefinidamente gasta batería y datos sin arreglar nada.
+      const espera = Math.min(3000 * 2 ** intento++, 30_000);
+      retryRef.current = setTimeout(connect, espera);
+    };
 
     const connect = () => {
-      const ws = new WebSocket(socketUrl());
+      let ws: WebSocket;
+      try {
+        ws = new WebSocket(socketUrl());
+      } catch {
+        // URL mal formada (esquema equivocado en Ajustes): sin este catch la
+        // excepción sale del efecto, que está por encima del ErrorBoundary, y
+        // la app queda en blanco.
+        setState((s) => ({ ...s, connected: false }));
+        reintentar();
+        return;
+      }
       wsRef.current = ws;
 
-      ws.onopen = () => setState((s) => ({ ...s, connected: true }));
+      ws.onopen = () => {
+        intento = 0;
+        setState((s) => ({ ...s, connected: true }));
+      };
 
       ws.onmessage = (ev) => {
-        const msg: SocketMessage = JSON.parse(ev.data);
+        let msg: SocketMessage;
+        try {
+          msg = JSON.parse(ev.data);
+        } catch {
+          return; // frame no-JSON: ignorarlo en vez de romper el handler
+        }
         setState((s) => {
           const devices = { ...s.devices };
           const positions = { ...s.positions };
@@ -67,7 +94,7 @@ function useSocketFeed(enabled: boolean): LiveSocket {
 
       ws.onclose = () => {
         setState((s) => ({ ...s, connected: false }));
-        if (!closed) retryRef.current = setTimeout(connect, 3000);
+        reintentar();
       };
 
       ws.onerror = () => ws.close();
@@ -116,6 +143,7 @@ function usePollingFeed(enabled: boolean): LiveSocket {
     }
     let stopped = false;
     let round = 0;
+    let enVuelo = false;
 
     const pollEvents = async (deviceIds: number[]) => {
       const to = new Date();
@@ -129,8 +157,11 @@ function usePollingFeed(enabled: boolean): LiveSocket {
     };
 
     const poll = async () => {
-      if (stopped || document.hidden) return; // en segundo plano no gastamos datos
+      // enVuelo: con red lenta, el poll de t=15 s podía volver antes que el de
+      // t=0 y este último pisaba las posiciones nuevas con las viejas.
+      if (stopped || enVuelo || document.hidden) return;
       const n = round++;
+      enVuelo = true;
       try {
         const [ds, ps] = await Promise.all([getDevices(), getPositions()]);
         if (stopped) return;
@@ -143,6 +174,8 @@ function usePollingFeed(enabled: boolean): LiveSocket {
         if (n % EVENTS_EVERY === 0) await pollEvents(ds.map((d) => d.id));
       } catch {
         if (!stopped) setState((s) => ({ ...s, connected: false }));
+      } finally {
+        enVuelo = false;
       }
     };
 

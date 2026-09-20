@@ -7,9 +7,9 @@ export function knotsToKmh(knots: number): number {
 }
 
 // "hace 2 min" / "hace 1 h" / "hace 3 d" desde una fecha ISO.
-export function relativeTime(iso: string | null): string {
+export function relativeTime(iso: string | null, now = Date.now()): string {
   if (!iso) return "sin datos";
-  const diff = Date.now() - new Date(iso).getTime();
+  const diff = now - new Date(iso).getTime();
   if (diff < 0) return "ahora";
   const min = Math.floor(diff / 60000);
   if (min < 1) return "recién";

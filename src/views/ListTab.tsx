@@ -110,7 +110,7 @@ export default function ListTab({ vehicles, onShowOnMap }: Props) {
                   <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}>
                     <div style={{ width: 6, height: 6, borderRadius: "50%", background: st.color, flexShrink: 0 }} />
                     <span style={{ fontSize: 11, color: st.color, fontWeight: 600 }}>{st.label}</span>
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>· {v.lastSeen}</span>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>· {v.lastSeen}</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}>
                     <Icon name="satellite" size={11} color="rgba(255,255,255,0.3)" />
@@ -127,22 +127,24 @@ export default function ListTab({ vehicles, onShowOnMap }: Props) {
                     <InfoRow icon="satellite" label="Señal GPS" value={v.gpsAbsolute} />
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    <button onClick={() => onShowOnMap(v.id)} style={actionBtn(true)}>
-                      <Icon name="map-pin" size={14} color="#4f8ef7" />
+                    <button onClick={() => onShowOnMap(v.id)} disabled={!v.hasPosition} style={actionBtn(true, !v.hasPosition)}>
+                      <Icon name="map-pin" size={14} color={v.hasPosition ? "#4f8ef7" : "rgba(255,255,255,0.3)"} />
                       Ver en mapa
                     </button>
                     <button
                       onClick={() => window.open(`https://www.google.com/maps?q=${v.lat},${v.lng}`, "_blank")}
-                      style={actionBtn(false)}
+                      disabled={!v.hasPosition}
+                      style={actionBtn(false, !v.hasPosition)}
                     >
                       <Icon name="navigation" size={14} color="rgba(255,255,255,0.7)" />
                       Google Maps
                     </button>
-                    <button style={actionBtn(false)}>
+                    {/* Sin implementar todavía: deshabilitados para no simular una acción. */}
+                    <button disabled style={actionBtn(false, true)}>
                       <Icon name="radio" size={14} color="rgba(255,255,255,0.7)" />
                       Pedir GPS
                     </button>
-                    <button style={actionBtn(false)}>
+                    <button disabled style={actionBtn(false, true)}>
                       <Icon name="sliders-horizontal" size={14} color="rgba(255,255,255,0.7)" />
                       Configurar
                     </button>
@@ -174,7 +176,7 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
   );
 }
 
-function actionBtn(primary: boolean): React.CSSProperties {
+function actionBtn(primary: boolean, disabled = false): React.CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
@@ -188,7 +190,8 @@ function actionBtn(primary: boolean): React.CSSProperties {
     fontSize: 12,
     fontWeight: 600,
     fontFamily: "'Space Grotesk',sans-serif",
-    cursor: "pointer",
+    cursor: disabled ? "default" : "pointer",
+    opacity: disabled ? 0.45 : 1,
     outline: "none",
   };
 }

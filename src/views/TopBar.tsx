@@ -2,10 +2,12 @@ import Icon from "../ui/Icon";
 
 interface Props {
   refreshing: boolean;
+  connected: boolean;
+  hasUser: boolean;
   onRefresh: () => void;
 }
 
-export default function TopBar({ refreshing, onRefresh }: Props) {
+export default function TopBar({ refreshing, connected, hasUser, onRefresh }: Props) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "calc(18px + var(--sat, env(safe-area-inset-top))) 20px 14px", background: "#0d0d0f", borderBottom: "1px solid rgba(255,255,255,0.06)", zIndex: 10, flexShrink: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -13,6 +15,12 @@ export default function TopBar({ refreshing, onRefresh }: Props) {
           <Icon name="car" size={18} color="#0d0d0f" />
         </div>
         <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 22, fontWeight: 700, letterSpacing: "0.04em", color: "#fff", lineHeight: 1 }}>CUNICARS</span>
+        {hasUser && !connected && (
+          <span
+            title="Sin conexión en vivo con el servidor"
+            style={{ width: 7, height: 7, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }}
+          />
+        )}
       </div>
       <button
         onClick={onRefresh}

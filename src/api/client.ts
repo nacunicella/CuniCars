@@ -22,39 +22,41 @@ export function setServerUrl(url: string): void {
   }
 }
 
-// Credenciales para re-login automático: la cookie de sesión de Traccar es de
-// sesión (se borra al cerrar la app), así que guardamos email/pass para volver
-// a autenticar al arrancar. Es para uso personal: queda en localStorage (no cifrado).
-const AUTH_KEY = "cunicars_auth";
+// Token de sesión para volver a autenticar al reabrir la app: la cookie de
+// Traccar es de sesión y se pierde al cerrarla. Guardamos un token emitido por
+// el servidor, no la contraseña: el token se revoca desde Traccar y no sirve
+// para entrar a la cuenta.
+const TOKEN_KEY = "cunicars_token";
+const LEGACY_CREDS_KEY = "cunicars_auth"; // versiones viejas guardaban la clave
 
-export interface SavedCreds {
-  email: string;
-  password: string;
-}
-
-export function saveCreds(email: string, password: string): void {
+export function saveToken(token: string): void {
   try {
-    localStorage.setItem(AUTH_KEY, btoa(unescape(encodeURIComponent(JSON.stringify({ email, password })))));
+    localStorage.setItem(TOKEN_KEY, token);
   } catch {
     /* ignore */
   }
 }
 
-export function loadCreds(): SavedCreds | null {
+export function loadToken(): string | null {
   try {
-    const raw = localStorage.getItem(AUTH_KEY);
-    if (!raw) return null;
-    const obj = JSON.parse(decodeURIComponent(escape(atob(raw))));
-    if (obj && typeof obj.email === "string" && typeof obj.password === "string") return obj;
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearToken(): void {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
   } catch {
     /* ignore */
   }
-  return null;
 }
 
-export function clearCreds(): void {
+// Borra la contraseña que dejaron guardada las versiones anteriores.
+export function purgeLegacyCreds(): void {
   try {
-    localStorage.removeItem(AUTH_KEY);
+    localStorage.removeItem(LEGACY_CREDS_KEY);
   } catch {
     /* ignore */
   }
@@ -76,6 +78,40 @@ export const api = axios.create({
 export function refreshBaseUrl(): void {
   api.defaults.baseURL = baseURL();
 }
+
+// La cookie de Traccar vence. Sin esto, cada pedido posterior devuelve 401 en
+// bucle —el polling del APK repite el fallo cada 15 s— y la app se queda
+// mostrando datos viejos sin avisar. Ante el primer 401 renovamos la sesión con
+// el token guardado y reintentamos el pedido una sola vez.
+let renovacion: Promise<boolean> | null = null;
+
+async function renovarSesion(token: string): Promise<boolean> {
+  try {
+    await axios.get(`${baseURL()}/session`, {
+      params: { token },
+      withCredentials: true,
+    });
+    return true;
+  } catch {
+    clearToken(); // token revocado o vencido: no insistir
+    return false;
+  }
+}
+
+api.interceptors.response.use(undefined, async (error) => {
+  const config = error?.config as (typeof error.config & { _reintento?: boolean }) | undefined;
+  if (error?.response?.status !== 401 || !config || config._reintento) throw error;
+
+  const token = loadToken();
+  if (!token) throw error;
+
+  config._reintento = true;
+  renovacion ??= renovarSesion(token).finally(() => {
+    renovacion = null;
+  });
+  if (!(await renovacion)) throw error;
+  return api.request(config);
+});
 
 // Origin del WebSocket en vivo (/api/socket).
 export function socketUrl(): string {
